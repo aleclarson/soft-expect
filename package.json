@@ -5,7 +5,7 @@
   "author": "Alec Larson",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aleclarson/soft-expect.git"
+    "url": "git+https://github.com/aleclarson/soft-expect.git"
   },
   "files": [
     "dist"
