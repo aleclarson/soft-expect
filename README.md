@@ -4,9 +4,9 @@ Recoverable runtime expectation checks for TypeScript and JavaScript.
 
 Use `soft-expect` when a state should be surprising, the application can safely
 continue, and someone should investigate if it happens. It is a small diagnostic
-primitive for the gap between static types and runtime reality: parsed JSON, API
-responses, storage, URL params, SDK callbacks, feature flag rollouts, and rare
-state transitions.
+primitive for rare recoverable states in product flows, feature flag rollouts,
+state transitions, and runtime boundaries after normal validation has already
+chosen a safe fallback.
 
 Do not use it for hard invariants. If continuing could corrupt state, leak data,
 charge money incorrectly, or persist invalid records, throw, fail closed, or
@@ -23,19 +23,18 @@ pnpm add soft-expect
 ```ts
 import { softExpect } from 'soft-expect'
 
-const raw = JSON.parse(text) as { id?: unknown; email?: unknown }
-
-if (
-  !softExpect(typeof raw.id === 'string', 'Parsed user has invalid id', {
-    raw,
+if (cart.items.length === 0) {
+  softExpect(false, 'Checkout opened with empty cart', {
+    cartId,
+    source,
   })
-) {
+
   return null
 }
 ```
 
-The check returns the boolean result of the condition. A failed expectation is
-reported, then your code keeps running.
+The branch remains ordinary application logic. `softExpect(false, ...)` only
+records that this recoverable path was surprising enough to investigate.
 
 ## Reporting
 
@@ -74,10 +73,12 @@ softExpect.rateLimited(
   { orderId: order.id, prev, next },
 )
 
-softExpect.sampled(0.01, cart.items.length > 0, 'Checkout opened with empty cart', {
-  cartId,
-  source,
-})
+if (cart.items.length === 0) {
+  softExpect.sampled(0.01, false, 'Checkout opened with empty cart', {
+    cartId,
+    source,
+  })
+}
 
 softExpect.devOnly(
   oldFlowEnabled || !newFlowUsed,

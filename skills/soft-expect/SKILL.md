@@ -32,19 +32,24 @@ Prefer stronger or more specific tools when they fit:
 
 ## Good Uses
 
-Add `softExpect` where runtime reality can drift from static belief:
+Add `softExpect` where runtime reality can drift from static belief and normal
+application logic already has a safe way to continue:
 
-- API responses, `JSON.parse`, localStorage/sessionStorage, URL params, `postMessage` payloads, server-rendered bootstrap data, and third-party SDK callbacks.
+- API responses, localStorage/sessionStorage, URL params, `postMessage` payloads, server-rendered bootstrap data, and third-party SDK callbacks after validation or defensive branching has selected a safe fallback.
 - Rare or supposedly impossible state transitions that remain recoverable.
 - Critical product flows where the fallback is safe but suspicious.
 - Regression tripwires near subtle bugs that were fixed.
 - Migrations, rollouts, and feature flag interactions.
 
 ```ts
-softExpect(typeof payload.userId === 'string', 'Auth callback missing string userId', {
-  provider,
-  payloadShape: Object.keys(payload ?? {}),
-})
+if (typeof payload.userId !== 'string') {
+  softExpect(false, 'Auth callback missing string userId', {
+    provider,
+    payloadShape: Object.keys(payload ?? {}),
+  })
+
+  return anonymousSession
+}
 ```
 
 ```ts
@@ -71,12 +76,21 @@ function renderUser(user: User) {
 }
 ```
 
-Use it where TypeScript had to trust runtime data.
+Use schema validation for JSON and other structured boundary data when the shape
+matters. Reach for `softExpect` only after validation or a normal conditional
+branch has already chosen a safe fallback and the fallback itself is suspicious.
 
 ```ts
-const raw = JSON.parse(text) as User
+const parsed = UserSchema.safeParse(JSON.parse(text))
 
-softExpect(typeof raw.id === 'string', 'Parsed user has invalid id', { raw })
+if (!parsed.success) {
+  softExpect(false, 'Cached user payload failed schema validation', {
+    cacheKey,
+    issues: parsed.error.issues,
+  })
+
+  return null
+}
 ```
 
 Do not use it for expected user behavior. Put that in validation or UX state.
