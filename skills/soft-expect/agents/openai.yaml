@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Soft Expect'
+  short_description: 'Use soft runtime expectations well'
+  default_prompt: 'Use $soft-expect to add recoverable runtime expectation checks to this code.'

@@ -8,9 +8,7 @@
     "url": "https://github.com/aleclarson/soft-expect.git"
   },
   "files": [
-    "dist",
-    "docs",
-    "examples"
+    "dist"
   ],
   "type": "module",
   "exports": {
