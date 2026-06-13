@@ -1,6 +1,6 @@
 ---
 name: soft-expect
-description: Guidance for adding or reviewing `softExpect` runtime checks. Use when Codex needs to decide whether a recoverable suspicious state should use `softExpect`, choose between `softExpect`, hard assertions, validation, metrics, or logs, write actionable messages and context, or apply noise-control variants such as `once`, `rateLimited`, `sampled`, and `devOnly`.
+description: Use when adding or reviewing `softExpect` checks for surprising runtime states where code can safely continue, but the team should investigate if the expectation fails.
 ---
 
 # Soft Expect
