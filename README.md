@@ -2,15 +2,18 @@
 
 Recoverable runtime expectation checks for TypeScript and JavaScript.
 
-Use `soft-expect` when a state should be surprising, the application can safely
-continue, and someone should investigate if it happens. It is a small diagnostic
-primitive for rare recoverable states in product flows, feature flag rollouts,
-state transitions, and runtime boundaries after normal validation has already
-chosen a safe fallback.
+Use `soft-expect` sparingly when a state should be surprising, the application
+can safely continue, and someone should investigate if it happens.
+
+Default to not adding a soft expectation. Use one only when the state is
+surprising, continuation is safe, the signal would change someone's behavior,
+the check is cheap, and the message can identify the failed expectation with
+useful context. A missing check is usually better than a noisy one.
 
 Do not use it for hard invariants. If continuing could corrupt state, leak data,
 charge money incorrectly, or persist invalid records, throw, fail closed, or
-return a typed error instead.
+return a typed error instead. If structured boundary data needs shape
+validation, use a schema validator first.
 
 ## Install
 
@@ -23,18 +26,27 @@ pnpm add soft-expect
 ```ts
 import { softExpect } from 'soft-expect'
 
-if (cart.items.length === 0) {
-  softExpect(false, 'Checkout opened with empty cart', {
-    cartId,
-    source,
+if (surprisingButRecoverableState) {
+  softExpect(false, 'Expected condition failed while choosing safe fallback', {
+    relevantId,
+    observedState,
   })
 
-  return null
+  return safeFallback
 }
 ```
 
 The branch remains ordinary application logic. `softExpect(false, ...)` only
-records that this recoverable path was surprising enough to investigate.
+records that this recoverable path was surprising enough to investigate. Use the
+condition form only when it reads clearly and does not hide important branch
+behavior:
+
+```ts
+softExpect(conditionThatShouldHold, 'Expected condition failed during recoverable operation', {
+  relevantId,
+  observedState,
+})
+```
 
 ## Reporting
 
@@ -56,35 +68,22 @@ path into an application failure.
 
 ## Noise control
 
-Use a variant when a check can fire repeatedly:
+Keep production checks cheap, actionable, and owned. Choose silence over spam
+when actionability is unclear. Use a variant when a check can fire repeatedly:
 
 ```ts
-softExpect.once(
-  'auth-callback-user-id',
-  typeof payload.userId === 'string',
-  'Auth callback missing string userId',
-  { provider, payloadShape: Object.keys(payload ?? {}) },
-)
-
-softExpect.rateLimited(
-  `order-status:${order.id}`,
-  !(prev === 'submitted' && next === 'draft'),
-  'Order moved from submitted back to draft',
-  { orderId: order.id, prev, next },
-)
-
-if (cart.items.length === 0) {
-  softExpect.sampled(0.01, false, 'Checkout opened with empty cart', {
-    cartId,
-    source,
+if (surprisingButRecoverableState) {
+  softExpect.once(key, false, 'Expected condition failed once', {
+    relevantId,
+    observedState,
   })
+
+  return safeFallback
 }
 
-softExpect.devOnly(
-  oldFlowEnabled || !newFlowUsed,
-  'New flow used while old-flow compatibility flag is disabled',
-  { userId, experiment, removeAfter: 'checkout-migration' },
-)
+softExpect.rateLimited(key, conditionThatShouldHold, message, context)
+softExpect.sampled(0.01, conditionThatShouldHold, message, context)
+softExpect.devOnly(conditionThatShouldHold, message, context)
 ```
 
 - `once(key, ...)` reports only the first failure for a stable key.
@@ -123,4 +122,5 @@ recoverable expectation failures.
 
 It is not a schema validator, assertion library, logging framework, metrics
 system, or error boundary. Prefer those tools when they directly model the
-problem.
+problem. Do not add `softExpect` just because a branch looks unusual; add it
+only when the team would plausibly investigate that branch firing.
