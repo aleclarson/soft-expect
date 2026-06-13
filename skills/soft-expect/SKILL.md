@@ -7,19 +7,23 @@ description: Use when adding or reviewing `softExpect` checks for surprising run
 
 ## Overview
 
-Use `softExpect(condition, message, context?)` for suspicious runtime states where code can safely continue, but the violated expectation should be investigated.
+Use `softExpect(condition, message, context?)` sparingly for suspicious runtime states where code can safely continue, but the violated expectation should be investigated.
 
 Read it as: "I expect this to be true. If it is false, continuing is acceptable, but the team should know."
 
 ## Decision Rule
 
-Use `softExpect` only when all are true:
+Default to not adding `softExpect`. Use it only when all are true:
 
 1. Treat the state as surprising.
 2. Confirm the app can safely continue.
 3. Expect the signal to change someone's behavior.
 4. Keep the check cheap.
 5. Write a message that names the failed expectation and include useful context.
+
+If any item is uncertain, skip `softExpect` unless the surrounding code or user
+request makes the ownership and actionability clear. A missing `softExpect` is
+usually better than a noisy one.
 
 Prefer stronger or more specific tools when they fit:
 
@@ -97,6 +101,9 @@ Do not use it for expected user behavior. Put that in validation or UX state.
 
 Do not use it for normal fallback paths. If "that happens sometimes" and nobody plans to act, it is not a soft expectation.
 
+Do not add `softExpect` just because a branch looks unusual. Add it only when the
+team would plausibly investigate that branch firing.
+
 Do not use it as vague logging.
 
 ```ts
@@ -116,7 +123,8 @@ softExpect(
 
 ## Noise Control
 
-Keep production `softExpect` checks cheap, actionable, and owned.
+Keep production `softExpect` checks cheap, actionable, and owned. Be conservative:
+choose silence over spam when actionability is unclear.
 
 Use variants for noisy surfaces:
 
