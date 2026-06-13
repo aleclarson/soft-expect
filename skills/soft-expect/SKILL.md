@@ -30,34 +30,34 @@ Prefer stronger or more specific tools when they fit:
 - Use metrics for expected-but-important rates.
 - Use logs for ordinary observability.
 
-## Good Uses
+## Fit
 
-Add `softExpect` where runtime reality can drift from static belief and normal
-application logic already has a safe way to continue:
+Do not treat this skill as a catalog of allowed scenarios. Apply the decision
+rule to the local code path. `softExpect` fits when the code has discovered a
+surprising recoverable state and has already chosen a safe continuation path.
 
-- API responses, localStorage/sessionStorage, URL params, `postMessage` payloads, server-rendered bootstrap data, and third-party SDK callbacks after validation or defensive branching has selected a safe fallback.
-- Rare or supposedly impossible state transitions that remain recoverable.
-- Critical product flows where the fallback is safe but suspicious.
-- Regression tripwires near subtle bugs that were fixed.
-- Migrations, rollouts, and feature flag interactions.
+For conditional gates, keep the branch as ordinary application logic and force
+the report inside the branch:
 
 ```ts
-if (typeof payload.userId !== 'string') {
-  softExpect(false, 'Auth callback missing string userId', {
-    provider,
-    payloadShape: Object.keys(payload ?? {}),
+if (surprisingButRecoverableState) {
+  softExpect(false, 'Expected condition failed while choosing safe fallback', {
+    relevantId,
+    observedState,
   })
 
-  return anonymousSession
+  return safeFallback
 }
 ```
 
+For direct expectation checks, use the condition form only when it reads clearly
+and does not hide important branch behavior:
+
 ```ts
-softExpect(
-  !(prev === 'submitted' && next === 'draft'),
-  'Order moved from submitted back to draft',
-  { orderId, prev, next },
-)
+softExpect(conditionThatShouldHold, 'Expected condition failed during recoverable operation', {
+  relevantId,
+  observedState,
+})
 ```
 
 ## Bad Uses
@@ -65,31 +65,31 @@ softExpect(
 Do not use `softExpect` for real invariants where continuing may corrupt state, leak data, charge money incorrectly, or persist invalid records. Throw, fail closed, or return a typed error instead.
 
 ```ts
-assert(paymentAmount > 0, 'Payment amount must be positive')
+assert(conditionRequiredForSafety, 'Required condition failed')
 ```
 
 Do not repeat what TypeScript already proves locally.
 
 ```ts
-function renderUser(user: User) {
-  softExpect(typeof user.id === 'string', 'User id should be a string')
+function renderEntity(entity: TypedEntity) {
+  softExpect(typeof entity.id === 'string', 'Entity id should be a string')
 }
 ```
 
-Use schema validation for JSON and other structured boundary data when the shape
-matters. Reach for `softExpect` only after validation or a normal conditional
-branch has already chosen a safe fallback and the fallback itself is suspicious.
+Use schema validation when structured boundary data needs shape validation.
+Reach for `softExpect` only after validation or a normal conditional branch has
+already chosen a safe fallback and the fallback itself is suspicious.
 
 ```ts
-const parsed = UserSchema.safeParse(JSON.parse(text))
+const parsed = Schema.safeParse(input)
 
 if (!parsed.success) {
-  softExpect(false, 'Cached user payload failed schema validation', {
-    cacheKey,
+  softExpect(false, 'Structured input failed validation before safe fallback', {
+    inputSource,
     issues: parsed.error.issues,
   })
 
-  return null
+  return safeFallback
 }
 ```
 
@@ -108,9 +108,9 @@ Prefer messages that name the violated expectation and include debugging context
 
 ```ts
 softExpect(
-  order.status !== 'paid' || order.receiptId != null,
-  'Paid order is missing receiptId after payment confirmation',
-  { orderId: order.id, paymentIntentId },
+  conditionThatShouldHold,
+  'Expected condition failed while safe fallback remained available',
+  { relevantId, observedState },
 )
 ```
 
